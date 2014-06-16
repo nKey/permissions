@@ -80,7 +80,7 @@ def is_(actor_type, actor_object, actor_attribute, value_expr=True, context=None
     if callable(value_expr):
         match = value_expr(value)
     if not match:
-        raise PermissionDenied(_get_deny_reason(actor_object, actor_attribute))
+        raise PermissionDenied(get_deny_reason(actor_object, actor_attribute))
 
 
 def get(actor_type, actor_object, actor_attribute, context=None):
@@ -121,20 +121,33 @@ def _get_abac_dict(actor_type, actor_object, context):
     return abac_dict
 
 
-def _set_deny_reason(abac_dict, action, reason_message):
+def get_deny_reason(abac_dict, action):
+    """
+    Get the deny reason for an action.
+
+    Returns:
+        List of strings with all deny reasons found when checking an action.
+
+    """
+    return abac_dict.get('_reasons', {}).get(action, [])
+
+
+def set_deny_reason(abac_dict, action, reason_message):
     """Set a deny reason message for the given action."""
     reasons = abac_dict.setdefault('_reasons', {}).setdefault(action, [])
     reasons.append(reason_message)
 
 
-def _set_default_reasons(abac_dict, reasons_dict):
+def set_default_reasons(abac_dict, reasons_dict):
+    """
+    Set default messages to many actions or attributes.
+
+    Automatically wraps value in a list if a single message is given for a key.
+
+    """
     reasons_dict = {k: [v] if not isinstance(v, list) else v
         for k, v in reasons_dict.iteritems()}
     abac_dict.setdefault('_reasons', reasons_dict).update(reasons_dict)
-
-
-def _get_deny_reason(abac_dict, action):
-    return abac_dict.get('_reasons', {}).get(action, [])
 
 
 def setdefaultattr(obj, name, value):
