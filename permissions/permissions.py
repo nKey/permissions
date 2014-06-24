@@ -60,7 +60,9 @@ def can(actor_type, actor_object, action, resource_object=None, context=None):
 
     """
     assertions = principals.get(actor_type, {}).get(action, [])
-    all(a(actor_object, resource_object, action, context) for a in assertions)
+    abac_dict = _get_abac_dict(actor_type, actor_object, context)
+    all(a(actor_object, resource_object, action, context, abac_dict=abac_dict)
+        for a in assertions)
 
 
 def is_(actor_type, actor_object, actor_attribute, value_expr=True, context=None):
@@ -84,7 +86,8 @@ def is_(actor_type, actor_object, actor_attribute, value_expr=True, context=None
     if callable(value_expr):
         match = value_expr(value)
     if not match:
-        raise PermissionDenied(get_deny_reason(actor_object, actor_attribute))
+        abac_dict = _get_abac_dict(actor_type, actor_object, context)
+        raise PermissionDenied(get_deny_reason(abac_dict, actor_attribute))
 
 
 def get(actor_type, actor_object, actor_attribute, context=None):
@@ -103,26 +106,34 @@ def get(actor_type, actor_object, actor_attribute, context=None):
         as well.
 
     """
-    return _get_abac_dict(actor_type, actor_object, context).get(actor_attribute)
+    return _load_abac_dict(actor_type, actor_object, context).get(actor_attribute)
 
 
-def _get_abac_dict(actor_type, actor_object, context):
+def _load_abac_dict(actor_type, actor_object, context):
     """
-    Get dictionary of attributes for `actor_object`.
-    Initializes the attributes from principals according to `actor_type`.
-
-    The default implementation attaches the attributes dictionary to the
-    `actor_object` instance. Can be overriden to use a centralized cache
-    or some other storage, as long as it returns a dict-like interface.
+    Initializes the attributes from principals according to `actor_type` and
+    returns the dictionary of attributes for `actor_object`.
 
     """
-    abac_dict = setdefaultattr(actor_object, '_abac', {})
+    abac_dict = _get_abac_dict(actor_type, actor_object, context)
     if not abac_dict or not actor_type in abac_dict:
         init = principals.get(actor_type, {}).get('_init', [])
         res = all(filter(lambda v: v is not None, (
             f(abac_dict, actor_object, context) for f in init)))
         abac_dict[actor_type] = res
     return abac_dict
+
+
+def _get_abac_dict(actor_type, actor_object, context):
+    """
+    Get attribute dictionary reference, without initializing its values.
+
+    The default implementation attaches the attributes dictionary to the
+    `actor_object` instance. Can be overriden to use a centralized cache
+    or some other storage, as long as it returns a dict-like interface.
+
+    """
+    return setdefaultattr(actor_object, '_abac', {})
 
 
 def get_deny_reason(abac_dict, action):
