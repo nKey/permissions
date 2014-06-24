@@ -30,6 +30,10 @@ Where:
     actor_object is the instance that the attributes apply to.
     context is any data that's needed to load the attributes.
 
+### Specification
+
+--algorithm Permissions
+
 """
 
 principals = {}  # must be populated or overriden
